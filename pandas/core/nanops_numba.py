@@ -118,3 +118,32 @@ def jit_get_first_non_null(arr):
             return 0, arr[0]
 
         return f
+
+
+def _numba_staticmethod(func):
+    return staticmethod(nb.njit(nogil=True)(func))
+
+
+class NumbaReductionOps:
+    """
+    Collection of numba implementations of scalar reduction ops"""
+
+    @_numba_staticmethod
+    def count(x, y):
+        return x + 1
+
+    @_numba_staticmethod
+    def min(x, y):
+        return x if x <= y else y
+
+    @_numba_staticmethod
+    def max(x, y):
+        return x if x >= y else y
+
+    @_numba_staticmethod
+    def sum(x, y):
+        return x + y
+
+    @_numba_staticmethod
+    def sum_square(x, y):
+        return x + y**2
