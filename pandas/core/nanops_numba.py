@@ -6,6 +6,7 @@ import numpy as np
 import numba as nb
 
 from numba.core.extending import overload
+from numba.typed import List as NumbaList
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -218,3 +219,21 @@ def _nb_reduce_single_arr(
         count += 1
 
     return result, count
+
+
+@nb.njit(nogil=True, parallel=True)
+def _nb_reduce_2d(
+    reduce_func: Callable,
+    arr_list: NumbaList[np.ndarray] | np.ndarray,  # type: ignore
+    target=np.ndarray,
+    skipna: bool = True,
+    find_initial_value: bool = True,
+) -> Tuple[float | int, int]:
+    counts = np.zeros(len(arr_list), dtype=np.int64)
+    for i in nb.prange(len(arr_list)):
+        arr = arr_list[i]
+        target[i], counts[i] = _nb_reduce_single_arr(
+            reduce_func, arr, skipna=skipna, find_initial_value=find_initial_value
+        )
+
+    return target, counts
