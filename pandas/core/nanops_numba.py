@@ -147,3 +147,74 @@ class NumbaReductionOps:
     @_numba_staticmethod
     def sum_square(x, y):
         return x + y**2
+
+
+@nb.njit(nogil=True)
+def _nb_reduce_single_arr(
+    reduce_func: Callable,
+    arr: np.ndarray,
+    skipna: bool = True,
+    find_initial_value: bool = True,
+) -> Tuple[float | int, int]:
+    """
+    Apply a reduction function to a numpy array, with NA/null handling.
+    Returns the count of non-nulls as well as the reduction.
+
+    Parameters
+    ----------
+    reduce_func : callable
+        Function that combines two values (e.g., min, max, sum)
+    arr : array-like
+        Array to reduce
+    skipna : bool, default True
+        Whether to skip NA/null values
+    initial_value:
+        Initial_value for each reduction. Should be 0 or None.
+        If None, we find the first_non_null value before commencing the reduction
+
+    Returns
+    -------
+    scalar
+        Result of the reduction operation
+
+    Notes
+    -----
+    This function is JIT-compiled with Numba for performance.
+    """
+    if not find_initial_value:
+        initial_value = 0
+        initial_loc = -1
+        count = 0
+
+    elif skipna:
+        # find the initial non-null value to pass through the reduction
+        initial_loc, initial_value = _get_first_non_null(arr)
+        if initial_loc == -1:  # all null
+            return arr[0], 0
+        else:
+            count = 1
+
+    else:
+        # start at the start since we either have all non-null values
+        # or we return the null value
+        initial_loc, initial_value = 0, arr[0]
+        if is_null(initial_value):
+            return initial_value, 0
+        else:
+            count = 1
+
+    start = initial_loc + 1
+    result = initial_value
+
+    for x in arr[start:]:
+        if is_null(x):
+            if skipna:
+                continue
+            else:
+                # here the count is the number elements before the first null which might be of use
+                return x, count
+
+        result = reduce_func(result, x)
+        count += 1
+
+    return result, count
