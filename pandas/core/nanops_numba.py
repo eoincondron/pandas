@@ -410,3 +410,123 @@ def nb_reduce(
     count = np.asarray(count)
 
     return result, count
+
+
+def _handle_dtype_conversions(nanop):
+
+    @wraps(nanop)
+    def wrapper(
+        values: "np.ndarray",
+        **kwargs,
+    ):
+        values = np.asarray(values)
+
+        is_datetime = is_datetime64_any_dtype(values)
+        is_timedelta = is_timedelta64_dtype(values)
+        if is_datetime or is_timedelta:
+            values = values.view("int64")
+        elif is_integer_dtype(values) or is_bool_dtype(values):
+            kwargs["skipna"] = False
+
+        result = nanop(values, **kwargs)
+        if is_datetime:
+            if "std" in nanop.__name__:
+                result = to_timedelta(result)
+            else:
+                result = to_datetime(result)
+        elif is_timedelta:
+            result = to_timedelta(result)
+
+        return result
+
+    return wrapper
+
+
+@_handle_dtype_conversions
+def nanmax(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    min_count: "int" = 0,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    return nb_reduce("max", **locals())[0]
+
+
+@_handle_dtype_conversions
+def nanmin(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    min_count: "int" = 0,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    return nb_reduce("min", **locals())[0]
+
+
+@_handle_dtype_conversions
+def nansum(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    min_count: "int" = 0,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    return nb_reduce("sum", **locals())[0]
+
+
+@_handle_dtype_conversions
+def nanmean(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    min_count: "int" = 0,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    sum_, count = nb_reduce("mean", **locals())
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        result = sum_ / count
+
+    return result
+
+
+def _nanvar(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    ddof: int = 1,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    kwargs = locals().copy()
+    del kwargs["ddof"]
+    sum_of_squares, count = nb_reduce("sum_square", **kwargs)
+    sum_, _ = nb_reduce("sum", **kwargs)
+    squared_sum = sum_.astype(float) ** 2
+    return (sum_of_squares - squared_sum / count) / (count - ddof)
+
+
+nanvar = _handle_dtype_conversions(_nanvar)
+
+
+@_handle_dtype_conversions
+def nanstd(
+    values: "np.ndarray",
+    *,
+    axis: "AxisInt | None" = None,
+    skipna: "bool" = True,
+    ddof: int = 1,
+    mask: "npt.NDArray[np.bool_] | None" = None,
+    multi_threading: bool = False,
+) -> np.ndarray:
+    return _nanvar(**locals()) ** 0.5
