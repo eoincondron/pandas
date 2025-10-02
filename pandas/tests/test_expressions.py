@@ -8,6 +8,7 @@ from pandas import option_context
 import pandas._testing as tm
 from pandas.core.api import DataFrame
 from pandas.core.computation import expressions as expr
+from pandas.core.computation.check import NUMEXPR_VERSION
 
 
 @pytest.fixture
@@ -318,7 +319,7 @@ class TestExpressions:
             f(df, True)
 
     @pytest.mark.parametrize(
-        "op_str,opname", [("+", "add"), ("*", "mul"), ("-", "sub")]
+        "op_str, opname", [("+", "add"), ("*", "mul"), ("-", "sub")]
     )
     def test_bool_ops_warn_on_arithmetic(self, op_str, opname, monkeypatch):
         n = 10
@@ -328,6 +329,8 @@ class TestExpressions:
                 "b": np.random.default_rng(2).random(n) > 0.5,
             }
         )
+        if NUMEXPR_VERSION and NUMEXPR_VERSION >= (2, 13, 1) and op_str in ("+", "*"):
+            return
 
         subs = {"+": "|", "*": "&", "-": "^"}
         sub_funcs = {"|": "or_", "&": "and_", "^": "xor"}

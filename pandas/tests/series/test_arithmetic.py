@@ -25,7 +25,10 @@ from pandas import (
 import pandas._testing as tm
 from pandas.core import ops
 from pandas.core.computation import expressions as expr
-from pandas.core.computation.check import NUMEXPR_INSTALLED
+from pandas.core.computation.check import (
+    NUMEXPR_INSTALLED,
+    NUMEXPR_VERSION,
+)
 
 
 @pytest.fixture(autouse=True, params=[0, 1000000], ids=["numexpr", "python"])
@@ -350,7 +353,9 @@ class TestSeriesArithmetic:
         # GH#22962
         warning = (
             UserWarning
-            if request.node.callspec.id == "numexpr" and NUMEXPR_INSTALLED
+            if request.node.callspec.id == "numexpr"
+            and NUMEXPR_INSTALLED
+            and NUMEXPR_VERSION <= (2, 13, 0)
             else None
         )
         ser = Series([True, None, False], dtype="boolean")

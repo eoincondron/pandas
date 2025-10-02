@@ -20,6 +20,7 @@ from pandas import (
 )
 import pandas._testing as tm
 from pandas.core.computation import expressions as expr
+from pandas.core.computation.check import NUMEXPR_VERSION
 from pandas.tests.frame.common import (
     _check_mixed_float,
     _check_mixed_int,
@@ -1095,9 +1096,12 @@ class TestFrameArithmetic:
         skip = {
             (operator.truediv, "bool"),
             (operator.pow, "bool"),
-            (operator.add, "bool"),
-            (operator.mul, "bool"),
         }
+        if NUMEXPR_VERSION and NUMEXPR_VERSION <= (2, 13, 0):
+            skip |= {
+                (operator.add, "bool"),
+                (operator.mul, "bool"),
+            }
 
         elem = DummyElement(value, dtype)
         df = DataFrame({"A": [elem.value, elem.value]}, dtype=elem.dtype)
